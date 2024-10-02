@@ -17,10 +17,8 @@ fn main() {
 
 #[cfg(test)] mod test {
     use super::*;
-    #[test] fn back() {
-        let mut space = Space::new();
-        space.device.fake_mode(false).unwrap()
-    }
+    #[test] fn run() { let mut space = Space::new(); space.cycle(100).unwrap(); }
+    #[test] fn back() { let mut space = Space::new(); space.device.fake_mode(false).unwrap()  }
 }
 
 pub struct Space {
@@ -66,7 +64,7 @@ impl Space {
             let (basey, stepy) = (803, (1078-803)/(6-1));
             let day = newt.weekday().number_from_sunday()-1; // col 0 - 6
             //// TODO !!!!!! window can ends on last day of month
-            let mut week = (ternary!(t.month() == newt.month(), newt.day(), t.day())+1) / 7;  // row 0-5
+            let week = (ternary!(t.month() == newt.month(), newt.day(), t.day())+1) / 7;  // row 0-5
             self.device.tap(1178, 490)?;           //set date
             self.device.tap(basex+day*stepx, basey+week*stepy)?;
             self.device.tap(1450, 1171)?; //  Done
