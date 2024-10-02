@@ -17,8 +17,8 @@ fn main() {
 
 #[cfg(test)] mod test {
     use super::*;
-    #[test] fn run() { let mut space = Space::new(); space.cycle(100).unwrap(); }
-    #[test] fn back() { let mut space = Space::new(); space.device.fake_mode(false).unwrap()  }
+    #[test] fn run() { Space::new().cycle(100).unwrap() }
+    #[test] fn back() { Device::new().unwrap().fake_mode(false).unwrap() }
 }
 
 pub struct Space {
