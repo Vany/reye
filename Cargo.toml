@@ -1,0 +1,10 @@
+[package]
+name = "reye"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+adb_client = "*"
+chrono = "*"
+scopeguard = "*"
+log = "*"
