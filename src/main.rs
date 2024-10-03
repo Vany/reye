@@ -1,24 +1,23 @@
 // #[macro_use(defer)] extern crate scopeguard;
 use std::{thread::sleep, io::Cursor, io::stdout, time::Duration, process::Command};
-use log::{debug, info};
+use log::{debug, info, LevelFilter};
 use adb_client::{ADBServer, ADBServerDevice, RustADBError};
 use chrono::{DateTime, Datelike, FixedOffset};
-
+use simple_logger::SimpleLogger;
 macro_rules! ternary {
     ($test:expr , $true_expr:expr , $false_expr:expr) => {
         if $test {$true_expr} else {$false_expr} }}
 
 
 fn main() {
-    log::set_max_level(log::LevelFilter::Info);
-    let mut space = Space::new();
-    space.cycle(100).unwrap()
+    SimpleLogger::new().with_level(LevelFilter::Info).init().unwrap();
+    Space::new().cycle(100).unwrap()
 }
 
 #[cfg(test)] mod test {
-    use super::*;
-    #[test] fn run() { Space::new().cycle(100).unwrap() }
-    #[test] fn back() { Device::new().unwrap().fake_mode(false).unwrap() }
+    #[test] fn back() { super::Device::new().unwrap().fake_mode(false).unwrap() }
+    #[test] fn play_ground() {
+    }
 }
 
 pub struct Space {
@@ -47,7 +46,8 @@ impl Space {
 
     fn retrieve_date(&mut self) -> Result<DateTime<FixedOffset>, RustADBError> {
         let s = self.device.exec("date")?;
-        let s = "2024 ".to_string() + s.strip_suffix(" 2024\n").unwrap() + ":00";
+        let (s, year) = s.rsplit_once(" ").unwrap();
+        let s = format!("{year} {s}:00"); // weird date format =(
         let d = DateTime::parse_from_str(s.as_str(), "%Y %a %b %e %H:%M:%S %::z").unwrap();
         Ok(d)
     }
@@ -70,7 +70,7 @@ impl Space {
             self.device.tap(1450, 1171)?; //  Done
         }
 
-        info!("🟩> {t}");
+        debug!("🟩> {t}");
         self.device.tap(949, 615)?; // set time
         sleep(Duration::from_millis(1300));
         self.device.drag(1188, 1092, 1188, 790)?;
