@@ -1,23 +1,28 @@
 // #[macro_use(defer)] extern crate scopeguard;
 use std::{thread::sleep, io::Cursor, io::stdout, time::Duration, process::Command};
-use log::{debug, info, LevelFilter};
-use adb_client::{ADBServer, ADBServerDevice, RustADBError};
+use log::{debug, info};
+use adb_client::{ADBServer, ADBServerDevice};
 use chrono::{DateTime, Datelike, FixedOffset};
-use simple_logger::SimpleLogger;
+use error_chain::error_chain;
+error_chain!(
+    foreign_links {
+        ADB(adb_client::RustADBError);
+        Io(std::io::Error);
+        FromUtf8Error(std::string::FromUtf8Error);
+    }
+);
+
 macro_rules! ternary {
     ($test:expr , $true_expr:expr , $false_expr:expr) => {
         if $test {$true_expr} else {$false_expr} }}
 
-
 fn main() {
-    SimpleLogger::new().with_level(LevelFilter::Info).init().unwrap();
-    Space::new().cycle(100).unwrap()
+    Space::new().cycle(200).unwrap()
 }
 
 #[cfg(test)] mod test {
     #[test] fn back() { super::Device::new().unwrap().fake_mode(false).unwrap() }
-    #[test] fn play_ground() {
-    }
+    #[test] fn play_ground() {}
 }
 
 pub struct Space {
@@ -27,16 +32,17 @@ pub struct Space {
 
 impl Space {
     pub fn new() -> Space { Space{ device: Device::new().unwrap() } }
-    pub fn cycle(&mut self, cnt: u32) -> Result<(), RustADBError> {
+
+    pub fn cycle(&mut self, cnt: u32) -> Result<()> {
         info!("🟢🟢🟢 {cnt}");
         self.device.fake_mode(true)?;
         for i in 0..cnt {
-            info!("🟢 {i}");
-            self.add_hours(6)?;
+            let t = self.add_hours(6)?;
             sleep(Duration::from_millis(1900));
             self.device.tap(911,2466)?;
             self.device.tap(931,2178)?;
             sleep(Duration::from_millis(500));
+            info!("🟢 {i}: {t}");
         }
         println!("🟢❇️🟢");
         Command::new("osascript").args(["-e", r#"display notification "DONE" with title "‼️"""#]).
@@ -44,7 +50,7 @@ impl Space {
         Ok(())
     }
 
-    fn retrieve_date(&mut self) -> Result<DateTime<FixedOffset>, RustADBError> {
+    fn retrieve_date(&mut self) -> Result<DateTime<FixedOffset>> {
         let s = self.device.exec("date")?;
         let (s, year) = s.rsplit_once(" ").unwrap();
         let s = format!("{year} {s}:00"); // weird date format =(
@@ -52,7 +58,7 @@ impl Space {
         Ok(d)
     }
 
-    fn add_hours(&mut self, hours: u64) -> Result<(), RustADBError> {
+    fn add_hours(&mut self, hours: u64) -> Result<DateTime<FixedOffset>> {
         self.switch_game_app(false)?;
         sleep(Duration::from_millis(1000));
 
@@ -79,10 +85,11 @@ impl Space {
         sleep(Duration::from_millis(100));
         self.device.tap(1456, 1160)?;
 
-        self.switch_game_app(true)
+        self.switch_game_app(true)?;
+        Ok(newt)
     }
 
-    fn switch_game_app(&mut self, game: bool) -> Result<(), RustADBError> {
+    fn switch_game_app(&mut self, game: bool) -> Result<()> {
         let _s = self.device.exec(("am start ".to_string() + if game {
             "-n com.TironiumTech.IdlePlanetMiner/com.google.firebase.auth.internal.GenericIdpActivity"
         } else {
@@ -99,7 +106,7 @@ struct Device {
 }
 
 impl Device {
-    pub fn new() -> Result<Device, RustADBError> {
+    pub fn new() -> Result<Device> {
         let mut server = ADBServer::default();
         server.devices()?.iter().for_each(|device| {
             info!("♦️ {}", device.identifier);
@@ -109,13 +116,13 @@ impl Device {
         })
     }
 
-    pub fn fake_mode(&mut self, fake : bool) -> Result<(), RustADBError> {
+    pub fn fake_mode(&mut self, fake : bool) -> Result<()> {
         self.device.shell_command(["svc", "wifi", ternary!(fake ,"disable","enable") ],stdout())?;
         self.device.shell_command(["settings", "put", "global", "auto_time", ternary!(fake ,"0","1") ],stdout())?;
         Ok(())
     }
 
-    pub fn tap(&mut self, x: u32, y: u32) -> Result<(), RustADBError> {
+    pub fn tap(&mut self, x: u32, y: u32) -> Result<()> {
         sleep(Duration::from_millis(50));
         self.device.shell_command([format!("input tap {x} {y}")], stdout())?;
         sleep(Duration::from_millis(50));
@@ -123,7 +130,7 @@ impl Device {
         Ok(())
     }
 
-    pub fn drag(&mut self, x1: u32, y1: u32, x2: u32, y2:u32) -> Result<(), RustADBError> {
+    pub fn drag(&mut self, x1: u32, y1: u32, x2: u32, y2:u32) -> Result<()> {
         sleep(Duration::from_millis(50));
         self.device.shell_command([format!("input swipe {x1} {y1} {x2} {y2}")], stdout())?;
         sleep(Duration::from_millis(50));
@@ -131,7 +138,7 @@ impl Device {
         Ok(())
     }
 
-    pub fn exec(&mut self, command: &str) -> Result<String, RustADBError> {
+    pub fn exec(&mut self, command: &str) -> Result<String> {
         let mut buff = Cursor::new(Vec::new());
         self.device.shell_command([command], &mut buff)?;
         Ok(String::from_utf8(buff.into_inner())?)

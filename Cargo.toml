@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+string = "*"
 adb_client = "*"
 chrono = "*"
 scopeguard = "*"
 log = "*"
 simple_logger = "*"
+error-chain = "*"
